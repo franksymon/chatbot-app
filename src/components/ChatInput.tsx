@@ -1,16 +1,15 @@
 import { useState, KeyboardEvent } from 'react';
 import { Send, Square, Zap } from 'lucide-react';
-import { ChatRequest, Provider } from '../types';
+import { ChatRequest, Provider, PromptType } from '../types';
 
 interface ChatInputProps {
   onSendMessage: (message: string, promptType: ChatRequest['prompt_type'], provider: Provider, useStreaming?: boolean) => void;
   isLoading: boolean;
-  isStreaming?: boolean;
-  promptTypes: Record<string, string>;
+  promptTypes: PromptType;
   onStop?: () => void;
 }
 
-export const ChatInput = ({ onSendMessage, isLoading, isStreaming, promptTypes, onStop }: ChatInputProps) => {
+export const ChatInput = ({ onSendMessage, isLoading, promptTypes, onStop }: ChatInputProps) => {
   const [message, setMessage] = useState('');
   const [selectedPromptType, setSelectedPromptType] = useState<ChatRequest['prompt_type']>('general');
   const [selectedProvider, setSelectedProvider] = useState<Provider>('openai');

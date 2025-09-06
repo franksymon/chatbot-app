@@ -4,6 +4,7 @@ import { ChatInput } from './ChatInput';
 import { useChat } from '../hooks/useChat';
 import { chatAPI } from '../services/api';
 import { History, AlertCircle, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { PromptType } from '../types';
 
 interface ChatContainerProps {
   sessionId: string;
@@ -11,7 +12,12 @@ interface ChatContainerProps {
 
 export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
   const { messages, isLoading, error, isStreaming, sendMessage, loadHistory, stopStreaming } = useChat(sessionId);
-  const [promptTypes, setPromptTypes] = useState<Record<string, string>>({});
+  const [promptTypes, setPromptTypes] = useState<PromptType>({
+    general: '',
+    case_analysis: '',
+    documentation: '',
+    resources: ''
+  });
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [exportSuccess, setExportSuccess] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -159,7 +165,6 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
       <ChatInput
         onSendMessage={sendMessage}
         isLoading={isLoading}
-        isStreaming={isStreaming}
         promptTypes={promptTypes}
         onStop={stopStreaming}
       />

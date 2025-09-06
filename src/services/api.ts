@@ -1,10 +1,12 @@
 import axios from 'axios';
 import { ChatRequest, ChatResponse, HistoryResponse, PromptTypesResponse, Provider } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_ENVIRONMENT === 'production'
+  ? import.meta.env.VITE_API_BASE_URL
+  : 'http://localhost:5000';
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api/v1`,
   headers: {
     'Content-Type': 'application/json',
   },

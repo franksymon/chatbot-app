@@ -60,7 +60,7 @@ export const useChat = (sessionId: string) => {
             setMessages(prev =>
               prev.map((msg, index) =>
                 index === prev.length - 1 && msg.type === 'AIMessage'
-                  ? { ...msg, content: msg.content + content }
+                  ? { ...msg, content: content }
                   : msg
               )
             );
