@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { ChatRequest, ChatResponse, HistoryResponse, PromptTypesResponse, Provider } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_ENVIRONMENT === 'production'
-  ? import.meta.env.VITE_API_BASE_URL
-  : 'http://localhost:5000';
+// Configuración de la URL base del API
+const API_BASE_URL = import.meta.env.VITE_ENVIRONMENT === 'local'
+  ? import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+  : 'https://chatbot-api-xfum.onrender.com';
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -27,7 +28,7 @@ export const chatAPI = {
   ): Promise<void> => {
     return new Promise((resolve, reject) => {
       // Usar fetch con streaming en lugar de EventSource
-      fetch(`${API_BASE_URL}/chat?provider=${provider}&stream=true`, {
+      fetch(`${API_BASE_URL}/api/v1/chat?provider=${provider}&stream=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
