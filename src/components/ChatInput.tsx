@@ -1,26 +1,29 @@
 import { useState, KeyboardEvent } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Square, Zap } from 'lucide-react';
 import { ChatRequest, Provider } from '../types';
 
 interface ChatInputProps {
-  onSendMessage: (message: string, promptType: ChatRequest['prompt_type'], provider: Provider) => void;
+  onSendMessage: (message: string, promptType: ChatRequest['prompt_type'], provider: Provider, useStreaming?: boolean) => void;
   isLoading: boolean;
+  isStreaming?: boolean;
   promptTypes: Record<string, string>;
+  onStop?: () => void;
 }
 
-export const ChatInput = ({ onSendMessage, isLoading, promptTypes }: ChatInputProps) => {
+export const ChatInput = ({ onSendMessage, isLoading, isStreaming, promptTypes, onStop }: ChatInputProps) => {
   const [message, setMessage] = useState('');
   const [selectedPromptType, setSelectedPromptType] = useState<ChatRequest['prompt_type']>('general');
   const [selectedProvider, setSelectedProvider] = useState<Provider>('openai');
+  const [useStreaming, setUseStreaming] = useState(true);
 
   const handleSubmit = () => {
     if (message.trim() && !isLoading) {
-      onSendMessage(message, selectedPromptType, selectedProvider);
+      onSendMessage(message, selectedPromptType, selectedProvider, useStreaming);
       setMessage('');
     }
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -63,28 +66,49 @@ export const ChatInput = ({ onSendMessage, isLoading, promptTypes }: ChatInputPr
         </div>
       </div>
 
+      {/* Toggle de streaming */}
+      <div className="flex items-center gap-2 mb-2">
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={useStreaming}
+            onChange={(e) => setUseStreaming(e.target.checked)}
+            className="rounded"
+          />
+          <Zap className="w-4 h-4" />
+          Streaming en tiempo real
+        </label>
+      </div>
+
       {/* Input de mensaje */}
       <div className="flex gap-2">
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyDown={handleKeyDown}
           placeholder="Escribe tu consulta clínica aquí..."
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500"
           rows={2}
           disabled={isLoading}
         />
-        <button
-          onClick={handleSubmit}
-          disabled={!message.trim() || isLoading}
-          className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          {isLoading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
+
+        {isLoading ? (
+          <button
+            onClick={onStop}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center"
+            title="Detener generación"
+          >
+            <Square className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            disabled={!message.trim()}
+            className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
             <Send className="w-5 h-5" />
-          )}
-        </button>
+          </button>
+        )}
       </div>
     </div>
   );

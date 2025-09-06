@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { chatAPI } from '../services/api';
 import { Message, ChatRequest, Provider } from '../types';
 
@@ -6,11 +6,14 @@ export const useChat = (sessionId: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (
-    message: string, 
-    promptType: ChatRequest['prompt_type'], 
-    provider: Provider
+    message: string,
+    promptType: ChatRequest['prompt_type'],
+    provider: Provider,
+    useStreaming: boolean = true
   ) => {
     setIsLoading(true);
     setError(null);
@@ -21,28 +24,86 @@ export const useChat = (sessionId: string) => {
       content: message,
       timestamp: new Date().toISOString(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
 
-    try {
-      const response = await chatAPI.sendMessage({
-        message,
-        session_id: sessionId,
-        prompt_type: promptType,
-      }, provider);
+    if (useStreaming) {
+      // Usar streaming
+      setIsStreaming(true);
 
-      // Agregar respuesta del asistente
+      // Crear mensaje del asistente vacío para streaming
       const assistantMessage: Message = {
         type: 'AIMessage',
-        content: response.response,
+        content: '',
         timestamp: new Date().toISOString(),
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al enviar mensaje');
-    } finally {
-      setIsLoading(false);
+
+      try {
+        // Cancelar petición anterior si existe
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        abortControllerRef.current = new AbortController();
+
+        await chatAPI.sendMessageStream(
+          {
+            message,
+            session_id: sessionId,
+            prompt_type: promptType,
+          },
+          provider,
+          // onChunk
+          (content: string) => {
+            setMessages(prev =>
+              prev.map((msg, index) =>
+                index === prev.length - 1 && msg.type === 'AIMessage'
+                  ? { ...msg, content: msg.content + content }
+                  : msg
+              )
+            );
+          },
+          // onDone
+          () => {
+            setIsLoading(false);
+            setIsStreaming(false);
+          },
+          // onError
+          (error: string) => {
+            setError(error);
+            setIsLoading(false);
+            setIsStreaming(false);
+          }
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al enviar mensaje');
+        setIsLoading(false);
+        setIsStreaming(false);
+      }
+    } else {
+      // Usar método tradicional (sin streaming)
+      try {
+        const response = await chatAPI.sendMessage({
+          message,
+          session_id: sessionId,
+          prompt_type: promptType,
+        }, provider);
+
+        // Agregar respuesta del asistente
+        const assistantMessage: Message = {
+          type: 'AIMessage',
+          content: response.response,
+          timestamp: new Date().toISOString(),
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error al enviar mensaje');
+      } finally {
+        setIsLoading(false);
+      }
     }
   }, [sessionId]);
 
@@ -63,12 +124,23 @@ export const useChat = (sessionId: string) => {
     setError(null);
   }, []);
 
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setIsStreaming(false);
+  }, []);
+
   return {
     messages,
     isLoading,
     error,
+    isStreaming,
     sendMessage,
     loadHistory,
     clearMessages,
+    stopStreaming,
   };
 };

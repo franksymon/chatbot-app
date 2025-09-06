@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { MessageBubble } from './MessageBubble';
+import { StreamingMessageBubble } from './StreamingMessageBubble';
 import { ChatInput } from './ChatInput';
 import { useChat } from '../hooks/useChat';
 import { chatAPI } from '../services/api';
-import { Download, History, AlertCircle } from 'lucide-react';
+import { History, AlertCircle, FileText, Loader2, CheckCircle } from 'lucide-react';
 
 interface ChatContainerProps {
   sessionId: string;
 }
 
 export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
-  const { messages, isLoading, error, sendMessage, loadHistory } = useChat(sessionId);
+  const { messages, isLoading, error, isStreaming, sendMessage, loadHistory, stopStreaming } = useChat(sessionId);
   const [promptTypes, setPromptTypes] = useState<Record<string, string>>({});
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [exportSuccess, setExportSuccess] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -30,6 +32,11 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
   }, [messages]);
 
   const handleExportPDF = async () => {
+    if (isExportingPDF) return; // Prevenir múltiples clics
+
+    setIsExportingPDF(true);
+    setExportSuccess(false);
+
     try {
       const blob = await chatAPI.exportPDF(sessionId);
       const url = window.URL.createObjectURL(blob);
@@ -40,8 +47,16 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      // Mostrar feedback de éxito
+      setExportSuccess(true);
+      setTimeout(() => setExportSuccess(false), 3000); // Ocultar después de 3 segundos
+
     } catch (error) {
       console.error('Error al exportar PDF:', error);
+      // Aquí podrías mostrar un toast o mensaje de error al usuario
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -65,11 +80,38 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
           </button>
           <button
             onClick={handleExportPDF}
-            disabled={messages.length === 0}
-            className="px-3 py-2 text-sm bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 flex items-center gap-2"
+            disabled={messages.length === 0 || isExportingPDF}
+            className={`px-3 py-2 text-sm rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-200 ${
+              exportSuccess
+                ? 'bg-green-500 text-white hover:bg-green-600'
+                : 'bg-primary-500 text-white hover:bg-primary-600'
+            }`}
+            title={
+              messages.length === 0
+                ? "No hay conversación para exportar"
+                : isExportingPDF
+                ? "Generando informe clínico..."
+                : exportSuccess
+                ? "¡Informe generado exitosamente!"
+                : "Generar informe clínico profesional en PDF"
+            }
           >
-            <Download className="w-4 h-4" />
-            Exportar PDF
+            {isExportingPDF ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generando...
+              </>
+            ) : exportSuccess ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                ¡Generado!
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4" />
+                Generar Informe
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -101,7 +143,12 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
         ) : (
           <>
             {messages.map((message, index) => (
-              <MessageBubble key={index} message={message} />
+              <StreamingMessageBubble
+                key={index}
+                message={message}
+                isStreaming={isStreaming}
+                isLastMessage={index === messages.length - 1}
+              />
             ))}
             <div ref={messagesEndRef} />
           </>
@@ -112,7 +159,9 @@ export const ChatContainer = ({ sessionId }: ChatContainerProps) => {
       <ChatInput
         onSendMessage={sendMessage}
         isLoading={isLoading}
+        isStreaming={isStreaming}
         promptTypes={promptTypes}
+        onStop={stopStreaming}
       />
     </div>
   );
